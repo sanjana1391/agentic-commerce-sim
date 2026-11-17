@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agentic Commerce Ranking Simulator</title>
+<meta name="description" content="Interactive simulator: how a sponsored signal can change which product an AI shopping assistant recommends.">
+<style>
+  :root {
+    --bg: #fafaf7; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6b66;
+    --line: #e4e2da; --accent: #2f6fdb; --accent-soft: #e8f0fd;
+    --warn: #b4531a; --warn-soft: #fbeee5; --ok: #2b7a4b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161614; --card: #1f1f1c; --ink: #ecebe6; --muted: #9a9a92;
+      --line: #33332f; --accent: #6b9cf0; --accent-soft: #1d2a40;
+      --warn: #e09060; --warn-soft: #3a2a1f; --ok: #6cc08b;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161614; --card: #1f1f1c; --ink: #ecebe6; --muted: #9a9a92;
+    --line: #33332f; --accent: #6b9cf0; --accent-soft: #1d2a40;
+    --warn: #e09060; --warn-soft: #3a2a1f; --ok: #6cc08b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 1.05rem; margin: 0 0 12px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 760px) { .grid { grid-template-columns: 300px 1fr; } }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px;
+  }
+  label { display: block; font-size: 0.9rem; margin-bottom: 14px; }
+  label span.v { float: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  select, input[type="checkbox"] { accent-color: var(--accent); }
+  select {
+    width: 100%; padding: 6px 8px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+  }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: 14px; }
+  .seg button {
+    flex: 1; padding: 8px; border: 0; background: transparent; color: var(--ink);
+    cursor: pointer; font-size: 0.9rem;
+  }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .funnel { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
+  .pill {
+    background: var(--accent-soft); color: var(--ink); border-radius: 999px;
+    padding: 4px 10px; font-size: 0.85rem;
+  }
+  .pill.muted { background: var(--bg); border: 1px solid var(--line); color: var(--muted); }
+  .rec {
+    border-left: 4px solid var(--accent); padding: 10px 14px;
+    background: var(--accent-soft); border-radius: 8px; margin-bottom: 14px;
+  }
+  .rec.sponsored { border-left-color: var(--warn); background: var(--warn-soft); }
+  .rec strong { font-size: 1.1rem; }
+  .rec p { margin: 4px 0 0; font-size: 0.92rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.top td { font-weight: 600; }
+  .tag { font-size: 0.75rem; padding: 2px 6px; border-radius: 6px; background: var(--warn-soft); color: var(--warn); }
+  .excluded { color: var(--muted); font-size: 0.88rem; margin-top: 12px; }
+  .formula { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; color: var(--muted); }
+  footer { color: var(--muted); font-size: 0.85rem; margin-top: 24px; }
+  footer a { color: var(--accent); }
+  .theme { float: right; font-size: 0.85rem; }
+  .theme button {
+    background: transparent; border: 1px solid var(--line); color: var(--ink);
+    border-radius: 6px; padding: 4px 8px; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="theme">
+    <button id="themeBtn" type="button" aria-label="Toggle light or dark theme">Toggle theme</button>
+  </div>
+  <h1>Agentic Commerce Ranking Simulator</h1>
+  <p class="sub">Ella asks for a waterproof backpack under $60, delivered by Sunday. Change the rules and watch the recommendation move. All data is synthetic.</p>
+
+  <div class="grid">
+    <section class="card" aria-labelledby="controls">
+      <h2 id="controls">Request and rules</h2>
+
+      <label>Maximum price <span class="v" id="priceV"></span>
+        <input type="range" id="price" min="20" max="120" step="1" value="60">
+      </label>
+
+      <label>Must arrive by
+        <select id="deliverBy">
+          <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+          <option>Thursday</option><option>Friday</option><option>Saturday</option>
+          <option selected>Sunday</option>
+        </select>
+      </label>
+
+      <label style="display:flex;gap:8px;align-items:center;">
+        <input type="checkbox" id="waterproof" checked> Waterproof required
+      </label>
+
+      <h2 style="margin-top:18px">Ranking strategy</h2>
+      <div class="seg" role="group" aria-label="Ranking strategy">
+        <button type="button" data-strategy="organic" aria-pressed="false">Organic</button>
+        <button type="button" data-strategy="sponsored" aria-pressed="true">Sponsored</button>
+      </div>
+
+      <label>RidgeLite sponsored bid <span class="v" id="bidV"></span>
+        <input type="range" id="bid" min="1" max="2" step="0.01" value="1.15">
+      </label>
+
+      <label>Bid cap <span class="v" id="capV"></span>
+        <input type="range" id="cap" min="1" max="2" step="0.01" value="1.2">
+      </label>
+
+      <p class="formula">organic = 0.5·relevance + 0.3·reviews + 0.2·price<br>final = organic × min(bid, cap)</p>
+    </section>
+
+    <section class="card" aria-live="polite">
+      <h2>Result</h2>
+      <div class="funnel" id="funnel"></div>
+      <div id="rec"></div>
+      <div id="table"></div>
+      <div class="excluded" id="excluded"></div>
+    </section>
+  </div>
+
+  <footer>
+    Companion to the article <em>From Clicks to Decisions</em>. Source code and tests:
+    <a href="https://github.com/sanjana1391/agentic-commerce-sim" rel="noopener">GitHub repository</a>.
+    Weights and the cap are illustrative, not taken from any real platform.
+  </footer>
+</main>
+
+<script>
+"use strict";
+
+const CATALOG = /*CATALOG*/[];
+const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const W = { relevance: 0.5, reviews: 0.3, price: 0.2 };
+const round3 = x => Math.round(x * 1000) / 1000;
+
+const state = { strategy: "sponsored" };
+const $ = id => document.getElementById(id);
+
+function organic(p) {
+  return round3(W.relevance * p.relevance + W.reviews * p.reviews + W.price * p.price_score);
+}
+
+// Only the named sponsored product (RidgeLite) uses the slider bid; others keep their data.
+function bidFor(p) {
+  return p.sku === "RL-0730" ? Number($("bid").value) : p.bid_multiplier;
+}
+
+function finalScore(p, strategy) {
+  const base = organic(p);
+  if (strategy === "sponsored") {
+    return round3(base * Math.min(bidFor(p), Number($("cap").value)));
+  }
+  return base;
+}
+
+function eligibility(p, req) {
+  if (req.waterproof && !p.waterproof) return "not waterproof";
+  if (p.price_usd > req.maxPrice) return "over budget";
+  if (DAYS.indexOf(p.delivery_day) > DAYS.indexOf(req.deliverBy)) return "arrives too late";
+  return null;
+}
+
+function run(req, strategy) {
+  const excluded = {};
+  const eligible = [];
+  for (const p of CATALOG) {
+    const reason = eligibility(p, req);
+    if (reason) excluded[reason] = (excluded[reason] || 0) + 1;
+    else eligible.push(p);
+  }
+  const ranked = eligible
+    .map(p => ({
+      p,
+      organic: organic(p),
+      final: finalScore(p, strategy),
+      sponsored: strategy === "sponsored" && bidFor(p) > 1.0,
+      mult: Math.min(bidFor(p), Number($("cap").value)),
+    }))
+    .sort((a, b) => b.final - a.final);
+  return { retrieved: CATALOG.length, eligible: eligible.length, excluded, ranked };
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function render() {
+  const req = {
+    maxPrice: Number($("price").value),
+    deliverBy: $("deliverBy").value,
+    waterproof: $("waterproof").checked,
+  };
+  $("priceV").textContent = "$" + req.maxPrice;
+  $("bidV").textContent = "×" + Number($("bid").value).toFixed(2);
+  $("capV").textContent = "×" + Number($("cap").value).toFixed(2);
+
+  const out = run(req, state.strategy);
+
+  $("funnel").innerHTML =
+    `<span class="pill">Retrieved ${out.retrieved}</span>` +
+    `<span class="pill">Eligible ${out.eligible}</span>` +
+    Object.entries(out.excluded).map(([k, v]) => `<span class="pill muted">${v} ${esc(k)}</span>`).join("");
+
+  if (out.ranked.length === 0) {
+    $("rec").innerHTML = `<div class="rec"><strong>No eligible products.</strong><p>Relax the price, delivery or waterproof rules.</p></div>`;
+    $("table").innerHTML = "";
+    $("excluded").textContent = "";
+    return;
+  }
+
+  const top = out.ranked[0];
+  const explanation = top.sponsored
+    ? `Ranked with a sponsored placement (×${top.mult.toFixed(2)}, capped at ×${Number($("cap").value).toFixed(2)}).`
+    : "Best match on relevance, reviews and price.";
+  $("rec").innerHTML =
+    `<div class="rec ${top.sponsored ? "sponsored" : ""}">` +
+    `<strong>Recommendation: ${esc(top.p.name)}</strong> (${esc(top.p.merchant)}, $${top.p.price_usd})` +
+    `<p>${esc(explanation)}</p></div>`;
+
+  const rows = out.ranked.slice(0, 8).map((r, i) =>
+    `<tr class="${i === 0 ? "top" : ""}">
+       <td>${i + 1}</td>
+       <td>${esc(r.p.name)} ${r.sponsored ? '<span class="tag">sponsored</span>' : ""}</td>
+       <td>${esc(r.p.merchant)}</td>
+       <td class="num">$${r.p.price_usd}</td>
+       <td class="num">${r.organic.toFixed(3)}</td>
+       <td class="num">${r.final.toFixed(3)}</td>
+     </tr>`).join("");
+  $("table").innerHTML =
+    `<table><thead><tr>
+       <th>#</th><th>Product</th><th>Merchant</th><th class="num">Price</th>
+       <th class="num">Organic</th><th class="num">Final</th>
+     </tr></thead><tbody>${rows}</tbody></table>`;
+
+  const ex = Object.entries(out.excluded).map(([k, v]) => `${v} ${k}`).join(", ");
+  $("excluded").textContent = ex ? `Excluded: ${ex}.` : "";
+}
+
+// Wire up controls
+["price", "deliverBy", "waterproof", "bid", "cap"].forEach(id =>
+  $(id).addEventListener("input", render));
+$(("waterproof")).addEventListener("change", render);
+document.querySelectorAll("[data-strategy]").forEach(btn =>
+  btn.addEventListener("click", () => {
+    state.strategy = btn.dataset.strategy;
+    document.querySelectorAll("[data-strategy]").forEach(b =>
+      b.setAttribute("aria-pressed", String(b === btn)));
+    render();
+  }));
+
+// Theme toggle: cycles auto -> light -> dark. Stored only in this browser.
+const root = document.documentElement;
+$("themeBtn").addEventListener("click", () => {
+  const cur = root.getAttribute("data-theme");
+  const next = cur === "light" ? "dark" : cur === "dark" ? null : "light";
+  if (next) root.setAttribute("data-theme", next); else root.removeAttribute("data-theme");
+});
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agentic Commerce Ranking Simulator</title>
+<meta name="description" content="Interactive simulator: how a sponsored signal can change which product an AI shopping assistant recommends.">
+<style>
+  :root {
+    --bg: #fafaf7; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6b66;
+    --line: #e4e2da; --accent: #2f6fdb; --accent-soft: #e8f0fd;
+    --warn: #b4531a; --warn-soft: #fbeee5; --ok: #2b7a4b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161614; --card: #1f1f1c; --ink: #ecebe6; --muted: #9a9a92;
+      --line: #33332f; --accent: #6b9cf0; --accent-soft: #1d2a40;
+      --warn: #e09060; --warn-soft: #3a2a1f; --ok: #6cc08b;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161614; --card: #1f1f1c; --ink: #ecebe6; --muted: #9a9a92;
+    --line: #33332f; --accent: #6b9cf0; --accent-soft: #1d2a40;
+    --warn: #e09060; --warn-soft: #3a2a1f; --ok: #6cc08b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 1.05rem; margin: 0 0 12px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 760px) { .grid { grid-template-columns: 300px 1fr; } }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px;
+  }
+  label { display: block; font-size: 0.9rem; margin-bottom: 14px; }
+  label span.v { float: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  select, input[type="checkbox"] { accent-color: var(--accent); }
+  select {
+    width: 100%; padding: 6px 8px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+  }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: 14px; }
+  .seg button {
+    flex: 1; padding: 8px; border: 0; background: transparent; color: var(--ink);
+    cursor: pointer; font-size: 0.9rem;
+  }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .funnel { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
+  .pill {
+    background: var(--accent-soft); color: var(--ink); border-radius: 999px;
+    padding: 4px 10px; font-size: 0.85rem;
+  }
+  .pill.muted { background: var(--bg); border: 1px solid var(--line); color: var(--muted); }
+  .rec {
+    border-left: 4px solid var(--accent); padding: 10px 14px;
+    background: var(--accent-soft); border-radius: 8px; margin-bottom: 14px;
+  }
+  .rec.sponsored { border-left-color: var(--warn); background: var(--warn-soft); }
+  .rec strong { font-size: 1.1rem; }
+  .rec p { margin: 4px 0 0; font-size: 0.92rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.top td { font-weight: 600; }
+  .tag { font-size: 0.75rem; padding: 2px 6px; border-radius: 6px; background: var(--warn-soft); color: var(--warn); }
+  .excluded { color: var(--muted); font-size: 0.88rem; margin-top: 12px; }
+  .formula { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; color: var(--muted); }
+  footer { color: var(--muted); font-size: 0.85rem; margin-top: 24px; }
+  footer a { color: var(--accent); }
+  .theme { float: right; font-size: 0.85rem; }
+  .theme button {
+    background: transparent; border: 1px solid var(--line); color: var(--ink);
+    border-radius: 6px; padding: 4px 8px; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="theme">
+    <button id="themeBtn" type="button" aria-label="Toggle light or dark theme">Toggle theme</button>
+  </div>
+  <h1>Agentic Commerce Ranking Simulator</h1>
+  <p class="sub">Ella asks for a waterproof backpack under $60, delivered by Sunday. Change the rules and watch the recommendation move. All data is synthetic.</p>
+
+  <div class="grid">
+    <section class="card" aria-labelledby="controls">
+      <h2 id="controls">Request and rules</h2>
+
+      <label>Maximum price <span class="v" id="priceV"></span>
+        <input type="range" id="price" min="20" max="120" step="1" value="60">
+      </label>
+
+      <label>Must arrive by
+        <select id="deliverBy">
+          <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+          <option>Thursday</option><option>Friday</option><option>Saturday</option>
+          <option selected>Sunday</option>
+        </select>
+      </label>
+
+      <label style="display:flex;gap:8px;align-items:center;">
+        <input type="checkbox" id="waterproof" checked> Waterproof required
+      </label>
+
+      <h2 style="margin-top:18px">Ranking strategy</h2>
+      <div class="seg" role="group" aria-label="Ranking strategy">
+        <button type="button" data-strategy="organic" aria-pressed="false">Organic</button>
+        <button type="button" data-strategy="sponsored" aria-pressed="true">Sponsored</button>
+      </div>
+
+      <label>RidgeLite sponsored bid <span class="v" id="bidV"></span>
+        <input type="range" id="bid" min="1" max="2" step="0.01" value="1.15">
+      </label>
+
+      <label>Bid cap <span class="v" id="capV"></span>
+        <input type="range" id="cap" min="1" max="2" step="0.01" value="1.2">
+      </label>
+
+      <p class="formula">organic = 0.5·relevance + 0.3·reviews + 0.2·price<br>final = organic × min(bid, cap)</p>
+    </section>
+
+    <section class="card" aria-live="polite">
+      <h2>Result</h2>
+      <div class="funnel" id="funnel"></div>
+      <div id="rec"></div>
+      <div id="table"></div>
+      <div class="excluded" id="excluded"></div>
+    </section>
+  </div>
+
+  <footer>
+    Companion to the article <em>From Clicks to Decisions</em>. Source code and tests:
+    <a href="https://github.com/sanjana1391/agentic-commerce-sim" rel="noopener">GitHub repository</a>.
+    Weights and the cap are illustrative, not taken from any real platform.
+  </footer>
+</main>
+
+<script>
+"use strict";
+
+const CATALOG = [
+ {
+  "sku": "TB-2291",
+  "merchant": "Merchant A",
+  "name": "TrailPro",
+  "price_usd": 54,
+  "waterproof": true,
+  "delivery_day": "Saturday",
+  "relevance": 0.9,
+  "reviews": 0.85,
+  "price_score": 0.8,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "SB-1104",
+  "merchant": "Merchant B",
+  "name": "StormSack",
+  "price_usd": 48,
+  "waterproof": true,
+  "delivery_day": "Friday",
+  "relevance": 0.8,
+  "reviews": 0.85,
+  "price_score": 0.8,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "RL-0730",
+  "merchant": "Merchant C",
+  "name": "RidgeLite",
+  "price_usd": 42,
+  "waterproof": true,
+  "delivery_day": "Saturday",
+  "relevance": 0.78,
+  "reviews": 0.8,
+  "price_score": 0.85,
+  "bid_multiplier": 1.15
+ },
+ {
+  "sku": "GEN-000",
+  "merchant": "Merchant C",
+  "name": "Backpack 00",
+  "price_usd": 35.58,
+  "waterproof": false,
+  "delivery_day": "Tuesday",
+  "relevance": 0.39,
+  "reviews": 0.67,
+  "price_score": 0.74,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-001",
+  "merchant": "Merchant C",
+  "name": "Backpack 01",
+  "price_usd": 33.26,
+  "waterproof": false,
+  "delivery_day": "Monday",
+  "relevance": 0.34,
+  "reviews": 0.42,
+  "price_score": 0.68,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-002",
+  "merchant": "Merchant C",
+  "name": "Backpack 02",
+  "price_usd": 43.89,
+  "waterproof": false,
+  "delivery_day": "Friday",
+  "relevance": 0.47,
+  "reviews": 0.52,
+  "price_score": 0.42,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-003",
+  "merchant": "Merchant A",
+  "name": "Backpack 03",
+  "price_usd": 97.09,
+  "waterproof": true,
+  "delivery_day": "Thursday",
+  "relevance": 0.44,
+  "reviews": 0.38,
+  "price_score": 0.97,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-004",
+  "merchant": "Merchant B",
+  "name": "Backpack 04",
+  "price_usd": 34.71,
+  "waterproof": false,
+  "delivery_day": "Wednesday",
+  "relevance": 0.64,
+  "reviews": 0.6,
+  "price_score": 0.85,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-005",
+  "merchant": "Merchant C",
+  "name": "Backpack 05",
+  "price_usd": 68.65,
+  "waterproof": true,
+  "delivery_day": "Thursday",
+  "relevance": 0.33,
+  "reviews": 0.45,
+  "price_score": 0.7,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-006",
+  "merchant": "Merchant B",
+  "name": "Backpack 06",
+  "price_usd": 79.85,
+  "waterproof": false,
+  "delivery_day": "Monday",
+  "relevance": 0.56,
+  "reviews": 0.69,
+  "price_score": 0.99,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-007",
+  "merchant": "Merchant A",
+  "name": "Backpack 07",
+  "price_usd": 107.32,
+  "waterproof": false,
+  "delivery_day": "Thursday",
+  "relevance": 0.55,
+  "reviews": 0.48,
+  "price_score": 0.5,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-008",
+  "merchant": "Merchant A",
+  "name": "Backpack 08",
+  "price_usd": 88.67,
+  "waterproof": false,
+  "delivery_day": "Saturday",
+  "relevance": 0.56,
+  "reviews": 0.6,
+  "price_score": 0.34,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-009",
+  "merchant": "Merchant C",
+  "name": "Backpack 09",
+  "price_usd": 48.26,
+  "waterproof": false,
+  "delivery_day": "Wednesday",
+  "relevance": 0.7,
+  "reviews": 0.62,
+  "price_score": 0.65,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-010",
+  "merchant": "Merchant C",
+  "name": "Backpack 10",
+  "price_usd": 55.81,
+  "waterproof": false,
+  "delivery_day": "Monday",
+  "relevance": 0.39,
+  "reviews": 0.32,
+  "price_score": 0.45,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-011",
+  "merchant": "Merchant B",
+  "name": "Backpack 11",
+  "price_usd": 31.29,
+  "waterproof": false,
+  "delivery_day": "Friday",
+  "relevance": 0.65,
+  "reviews": 0.46,
+  "price_score": 0.72,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-012",
+  "merchant": "Merchant B",
+  "name": "Backpack 12",
+  "price_usd": 109.04,
+  "waterproof": false,
+  "delivery_day": "Tuesday",
+  "relevance": 0.41,
+  "reviews": 0.42,
+  "price_score": 0.65,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-013",
+  "merchant": "Merchant B",
+  "name": "Backpack 13",
+  "price_usd": 95.97,
+  "waterproof": false,
+  "delivery_day": "Friday",
+  "relevance": 0.46,
+  "reviews": 0.41,
+  "price_score": 1.0,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-014",
+  "merchant": "Merchant C",
+  "name": "Backpack 14",
+  "price_usd": 71.88,
+  "waterproof": false,
+  "delivery_day": "Sunday",
+  "relevance": 0.34,
+  "reviews": 0.61,
+  "price_score": 0.83,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-015",
+  "merchant": "Merchant B",
+  "name": "Backpack 15",
+  "price_usd": 81.66,
+  "waterproof": false,
+  "delivery_day": "Friday",
+  "relevance": 0.7,
+  "reviews": 0.56,
+  "price_score": 0.98,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-016",
+  "merchant": "Merchant A",
+  "name": "Backpack 16",
+  "price_usd": 89.63,
+  "waterproof": true,
+  "delivery_day": "Friday",
+  "relevance": 0.6,
+  "reviews": 0.68,
+  "price_score": 0.47,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-017",
+  "merchant": "Merchant B",
+  "name": "Backpack 17",
+  "price_usd": 66.3,
+  "waterproof": false,
+  "delivery_day": "Saturday",
+  "relevance": 0.65,
+  "reviews": 0.43,
+  "price_score": 0.6,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-018",
+  "merchant": "Merchant A",
+  "name": "Backpack 18",
+  "price_usd": 73.23,
+  "waterproof": true,
+  "delivery_day": "Saturday",
+  "relevance": 0.42,
+  "reviews": 0.62,
+  "price_score": 0.69,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-019",
+  "merchant": "Merchant A",
+  "name": "Backpack 19",
+  "price_usd": 60.52,
+  "waterproof": true,
+  "delivery_day": "Sunday",
+  "relevance": 0.67,
+  "reviews": 0.76,
+  "price_score": 0.68,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-020",
+  "merchant": "Merchant B",
+  "name": "Backpack 20",
+  "price_usd": 26.85,
+  "waterproof": false,
+  "delivery_day": "Sunday",
+  "relevance": 0.62,
+  "reviews": 0.42,
+  "price_score": 0.39,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-021",
+  "merchant": "Merchant C",
+  "name": "Backpack 21",
+  "price_usd": 114.96,
+  "waterproof": true,
+  "delivery_day": "Thursday",
+  "relevance": 0.63,
+  "reviews": 0.79,
+  "price_score": 0.63,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-022",
+  "merchant": "Merchant A",
+  "name": "Backpack 22",
+  "price_usd": 37.2,
+  "waterproof": false,
+  "delivery_day": "Friday",
+  "relevance": 0.37,
+  "reviews": 0.56,
+  "price_score": 0.69,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-023",
+  "merchant": "Merchant A",
+  "name": "Backpack 23",
+  "price_usd": 113.25,
+  "waterproof": false,
+  "delivery_day": "Saturday",
+  "relevance": 0.38,
+  "reviews": 0.46,
+  "price_score": 1.0,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-024",
+  "merchant": "Merchant C",
+  "name": "Backpack 24",
+  "price_usd": 60.47,
+  "waterproof": false,
+  "delivery_day": "Thursday",
+  "relevance": 0.35,
+  "reviews": 0.41,
+  "price_score": 0.47,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-025",
+  "merchant": "Merchant C",
+  "name": "Backpack 25",
+  "price_usd": 77.62,
+  "waterproof": false,
+  "delivery_day": "Monday",
+  "relevance": 0.33,
+  "reviews": 0.62,
+  "price_score": 0.38,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-026",
+  "merchant": "Merchant A",
+  "name": "Backpack 26",
+  "price_usd": 106.67,
+  "waterproof": true,
+  "delivery_day": "Tuesday",
+  "relevance": 0.41,
+  "reviews": 0.54,
+  "price_score": 0.63,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-027",
+  "merchant": "Merchant C",
+  "name": "Backpack 27",
+  "price_usd": 113.87,
+  "waterproof": false,
+  "delivery_day": "Thursday",
+  "relevance": 0.4,
+  "reviews": 0.54,
+  "price_score": 0.53,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-028",
+  "merchant": "Merchant A",
+  "name": "Backpack 28",
+  "price_usd": 34.21,
+  "waterproof": false,
+  "delivery_day": "Thursday",
+  "relevance": 0.46,
+  "reviews": 0.73,
+  "price_score": 0.24,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-029",
+  "merchant": "Merchant C",
+  "name": "Backpack 29",
+  "price_usd": 118.5,
+  "waterproof": true,
+  "delivery_day": "Thursday",
+  "relevance": 0.59,
+  "reviews": 0.7,
+  "price_score": 0.29,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-030",
+  "merchant": "Merchant A",
+  "name": "Backpack 30",
+  "price_usd": 43.07,
+  "waterproof": false,
+  "delivery_day": "Thursday",
+  "relevance": 0.37,
+  "reviews": 0.53,
+  "price_score": 0.9,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-031",
+  "merchant": "Merchant A",
+  "name": "Backpack 31",
+  "price_usd": 67.1,
+  "waterproof": false,
+  "delivery_day": "Friday",
+  "relevance": 0.34,
+  "reviews": 0.63,
+  "price_score": 0.63,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-032",
+  "merchant": "Merchant A",
+  "name": "Backpack 32",
+  "price_usd": 117.05,
+  "waterproof": false,
+  "delivery_day": "Sunday",
+  "relevance": 0.39,
+  "reviews": 0.5,
+  "price_score": 0.59,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-033",
+  "merchant": "Merchant B",
+  "name": "Backpack 33",
+  "price_usd": 110.73,
+  "waterproof": true,
+  "delivery_day": "Monday",
+  "relevance": 0.69,
+  "reviews": 0.43,
+  "price_score": 0.83,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-034",
+  "merchant": "Merchant B",
+  "name": "Backpack 34",
+  "price_usd": 52.1,
+  "waterproof": false,
+  "delivery_day": "Saturday",
+  "relevance": 0.7,
+  "reviews": 0.58,
+  "price_score": 0.77,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-035",
+  "merchant": "Merchant A",
+  "name": "Backpack 35",
+  "price_usd": 43.04,
+  "waterproof": true,
+  "delivery_day": "Monday",
+  "relevance": 0.53,
+  "reviews": 0.57,
+  "price_score": 0.8,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-036",
+  "merchant": "Merchant A",
+  "name": "Backpack 36",
+  "price_usd": 29.76,
+  "waterproof": false,
+  "delivery_day": "Sunday",
+  "relevance": 0.51,
+  "reviews": 0.33,
+  "price_score": 0.61,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-037",
+  "merchant": "Merchant A",
+  "name": "Backpack 37",
+  "price_usd": 31.51,
+  "waterproof": true,
+  "delivery_day": "Sunday",
+  "relevance": 0.39,
+  "reviews": 0.36,
+  "price_score": 0.91,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-038",
+  "merchant": "Merchant A",
+  "name": "Backpack 38",
+  "price_usd": 80.0,
+  "waterproof": true,
+  "delivery_day": "Monday",
+  "relevance": 0.47,
+  "reviews": 0.59,
+  "price_score": 0.62,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-039",
+  "merchant": "Merchant B",
+  "name": "Backpack 39",
+  "price_usd": 44.4,
+  "waterproof": false,
+  "delivery_day": "Tuesday",
+  "relevance": 0.41,
+  "reviews": 0.37,
+  "price_score": 0.72,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-040",
+  "merchant": "Merchant B",
+  "name": "Backpack 40",
+  "price_usd": 55.04,
+  "waterproof": false,
+  "delivery_day": "Monday",
+  "relevance": 0.3,
+  "reviews": 0.61,
+  "price_score": 0.65,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-041",
+  "merchant": "Merchant A",
+  "name": "Backpack 41",
+  "price_usd": 31.96,
+  "waterproof": true,
+  "delivery_day": "Wednesday",
+  "relevance": 0.35,
+  "reviews": 0.47,
+  "price_score": 0.26,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-042",
+  "merchant": "Merchant A",
+  "name": "Backpack 42",
+  "price_usd": 60.11,
+  "waterproof": true,
+  "delivery_day": "Sunday",
+  "relevance": 0.52,
+  "reviews": 0.45,
+  "price_score": 0.99,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-043",
+  "merchant": "Merchant C",
+  "name": "Backpack 43",
+  "price_usd": 75.25,
+  "waterproof": false,
+  "delivery_day": "Friday",
+  "relevance": 0.42,
+  "reviews": 0.63,
+  "price_score": 0.95,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-044",
+  "merchant": "Merchant A",
+  "name": "Backpack 44",
+  "price_usd": 50.12,
+  "waterproof": false,
+  "delivery_day": "Saturday",
+  "relevance": 0.52,
+  "reviews": 0.44,
+  "price_score": 0.68,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-045",
+  "merchant": "Merchant C",
+  "name": "Backpack 45",
+  "price_usd": 57.57,
+  "waterproof": false,
+  "delivery_day": "Sunday",
+  "relevance": 0.41,
+  "reviews": 0.54,
+  "price_score": 0.92,
+  "bid_multiplier": 1.0
+ },
+ {
+  "sku": "GEN-046",
+  "merchant": "Merchant A",
+  "name": "Backpack 46",
+  "price_usd": 33.77,
+  "waterproof": false,
+  "delivery_day": "Wednesday",
+  "relevance": 0.32,
+  "reviews": 0.47,
+  "price_score": 0.3,
+  "bid_multiplier": 1.0
+ }
+];
+const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const W = { relevance: 0.5, reviews: 0.3, price: 0.2 };
+const round3 = x => Math.round(x * 1000) / 1000;
+
+const state = { strategy: "sponsored" };
+const $ = id => document.getElementById(id);
+
+function organic(p) {
+  return round3(W.relevance * p.relevance + W.reviews * p.reviews + W.price * p.price_score);
+}
+
+// Only the named sponsored product (RidgeLite) uses the slider bid; others keep their data.
+function bidFor(p) {
+  return p.sku === "RL-0730" ? Number($("bid").value) : p.bid_multiplier;
+}
+
+function finalScore(p, strategy) {
+  const base = organic(p);
+  if (strategy === "sponsored") {
+    return round3(base * Math.min(bidFor(p), Number($("cap").value)));
+  }
+  return base;
+}
+
+function eligibility(p, req) {
+  if (req.waterproof && !p.waterproof) return "not waterproof";
+  if (p.price_usd > req.maxPrice) return "over budget";
+  if (DAYS.indexOf(p.delivery_day) > DAYS.indexOf(req.deliverBy)) return "arrives too late";
+  return null;
+}
+
+function run(req, strategy) {
+  const excluded = {};
+  const eligible = [];
+  for (const p of CATALOG) {
+    const reason = eligibility(p, req);
+    if (reason) excluded[reason] = (excluded[reason] || 0) + 1;
+    else eligible.push(p);
+  }
+  const ranked = eligible
+    .map(p => ({
+      p,
+      organic: organic(p),
+      final: finalScore(p, strategy),
+      sponsored: strategy === "sponsored" && bidFor(p) > 1.0,
+      mult: Math.min(bidFor(p), Number($("cap").value)),
+    }))
+    .sort((a, b) => b.final - a.final);
+  return { retrieved: CATALOG.length, eligible: eligible.length, excluded, ranked };
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function render() {
+  const req = {
+    maxPrice: Number($("price").value),
+    deliverBy: $("deliverBy").value,
+    waterproof: $("waterproof").checked,
+  };
+  $("priceV").textContent = "$" + req.maxPrice;
+  $("bidV").textContent = "×" + Number($("bid").value).toFixed(2);
+  $("capV").textContent = "×" + Number($("cap").value).toFixed(2);
+
+  const out = run(req, state.strategy);
+
+  $("funnel").innerHTML =
+    `<span class="pill">Retrieved ${out.retrieved}</span>` +
+    `<span class="pill">Eligible ${out.eligible}</span>` +
+    Object.entries(out.excluded).map(([k, v]) => `<span class="pill muted">${v} ${esc(k)}</span>`).join("");
+
+  if (out.ranked.length === 0) {
+    $("rec").innerHTML = `<div class="rec"><strong>No eligible products.</strong><p>Relax the price, delivery or waterproof rules.</p></div>`;
+    $("table").innerHTML = "";
+    $("excluded").textContent = "";
+    return;
+  }
+
+  const top = out.ranked[0];
+  const explanation = top.sponsored
+    ? `Ranked with a sponsored placement (×${top.mult.toFixed(2)}, capped at ×${Number($("cap").value).toFixed(2)}).`
+    : "Best match on relevance, reviews and price.";
+  $("rec").innerHTML =
+    `<div class="rec ${top.sponsored ? "sponsored" : ""}">` +
+    `<strong>Recommendation: ${esc(top.p.name)}</strong> (${esc(top.p.merchant)}, $${top.p.price_usd})` +
+    `<p>${esc(explanation)}</p></div>`;
+
+  const rows = out.ranked.slice(0, 8).map((r, i) =>
+    `<tr class="${i === 0 ? "top" : ""}">
+       <td>${i + 1}</td>
+       <td>${esc(r.p.name)} ${r.sponsored ? '<span class="tag">sponsored</span>' : ""}</td>
+       <td>${esc(r.p.merchant)}</td>
+       <td class="num">$${r.p.price_usd}</td>
+       <td class="num">${r.organic.toFixed(3)}</td>
+       <td class="num">${r.final.toFixed(3)}</td>
+     </tr>`).join("");
+  $("table").innerHTML =
+    `<table><thead><tr>
+       <th>#</th><th>Product</th><th>Merchant</th><th class="num">Price</th>
+       <th class="num">Organic</th><th class="num">Final</th>
+     </tr></thead><tbody>${rows}</tbody></table>`;
+
+  const ex = Object.entries(out.excluded).map(([k, v]) => `${v} ${k}`).join(", ");
+  $("excluded").textContent = ex ? `Excluded: ${ex}.` : "";
+}
+
+// Wire up controls
+["price", "deliverBy", "waterproof", "bid", "cap"].forEach(id =>
+  $(id).addEventListener("input", render));
+$(("waterproof")).addEventListener("change", render);
+document.querySelectorAll("[data-strategy]").forEach(btn =>
+  btn.addEventListener("click", () => {
+    state.strategy = btn.dataset.strategy;
+    document.querySelectorAll("[data-strategy]").forEach(b =>
+      b.setAttribute("aria-pressed", String(b === btn)));
+    render();
+  }));
+
+// Theme toggle: cycles auto -> light -> dark. Stored only in this browser.
+const root = document.documentElement;
+$("themeBtn").addEventListener("click", () => {
+  const cur = root.getAttribute("data-theme");
+  const next = cur === "light" ? "dark" : cur === "dark" ? null : "light";
+  if (next) root.setAttribute("data-theme", next); else root.removeAttribute("data-theme");
+});
+
+render();
+</script>
+</body>
+</html>
