@@ -87,6 +87,4 @@ Good places to start:
 - Add a third strategy, such as a second-price auction or a per-merchant budget cap.
 - Log every excluded and ranked product so the output can be audited, which is the transparency point the article makes.
 
-## License
 
-Add a license before publishing (for example, MIT).
