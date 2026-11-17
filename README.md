@@ -50,19 +50,6 @@ python3 -m unittest -v test_adtech_agent_sim
 
 The tests check the article's numbers directly, along with the bid cap, eligibility reasons and input validation.
 
-## Interactive version
-
-The same logic runs in the browser, with sliders for the price limit, delivery deadline, bid and cap.
-
-Open `docs/index.html` directly, or host it free with GitHub Pages:
-
-1. Push this repository to GitHub.
-2. Go to **Settings → Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**, select your main branch and the **/docs** folder, then save.
-4. After a minute or two, the page is live at `https://sanjana1391.github.io/agentic-commerce-sim/`.
-
-rnal dependencies and sends no data anywhere.
-
 ## Files
 
 - `adtech_agent_sim.py` — the simulator: data model, eligibility, scoring, ranking and a command-line runner
