@@ -2,7 +2,9 @@
 
 A small, dependency-free simulator that shows how a sponsored signal can change which product an AI shopping assistant recommends.
 
-It is companion code for the article *From Clicks to Decisions*. All data is synthetic, and the weights are illustrative. This is a teaching model, not a description of any real platform.
+It is companion code for the article *Who Picks Your Product When an AI Agent Shops*. All data is synthetic, and the weights are illustrative. This is a teaching model, not a description of any real platform.
+
+https://medium.com/@jain.sanjana1002/what-really-happens-after-you-click-buy-an-end-to-end-trade-lifecycle-5e13c3a81d51?sharedUserId=jain.sanjana1002
 
 ## What it models
 
